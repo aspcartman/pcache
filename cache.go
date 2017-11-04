@@ -3,20 +3,19 @@ package pcache
 import (
 	"fmt"
 	"github.com/aspcartman/pcache/storage"
-	"time"
 	"net/http"
-	"io"
-	"io/ioutil"
+	"time"
+	"github.com/valyala/fasthttp"
 )
 
 type Cache struct {
-	client http.Client
+	client fasthttp.Client
 	store  storage.Store
 }
 
 func New(store storage.Store) *Cache {
 	return &Cache{
-		client: http.Client{Timeout: 10 * time.Second},
+		client: fasthttp.Client{},
 		store:  store,
 	}
 }
@@ -28,32 +27,21 @@ func (c *Cache) Get(url string) ([]byte, bool, error) {
 		return nil, false, err
 	}
 
-	if img, err := doGetData(url); err == nil {
+	if img, err := c.doGetData(url); err == nil {
 		return img, false, c.store.Set(url, img)
 	} else {
 		return nil, false, err
 	}
 }
 
-func doGetData(url string) ([]byte, error) {
-	res, err := http.Get(url)
+func (c *Cache) doGetData(url string) ([]byte, error) {
+	code, res, err := c.client.GetTimeout(nil, url, 10*time.Second)
 	if err != nil {
 		return nil, err
 	}
-	if res.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("bad status code: %d", res.StatusCode)
+	if code != http.StatusOK {
+		return nil, fmt.Errorf("bad status code: %d", code)
 	}
 
-	defer func() {
-		ioutil.ReadAll(res.Body)
-		res.Body.Close()
-	}()
-
-	data := make([]byte, res.ContentLength)
-	_, err = io.ReadFull(res.Body, data)
-	if err != nil {
-		return nil, err
-	}
-
-	return data, nil
+	return res, nil
 }

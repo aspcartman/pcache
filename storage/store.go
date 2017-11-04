@@ -9,4 +9,3 @@ type Store interface {
 	Set(key string, data []byte) error
 	Close() error
 }
-

@@ -1,8 +1,8 @@
 package storage
 
 import (
-	"testing"
 	. "github.com/glycerine/goconvey/convey"
+	"testing"
 )
 
 func TestInMemStore(t *testing.T) {

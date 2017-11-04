@@ -1,18 +1,20 @@
 package main
 
 import (
-	"context"
 	"flag"
+	"github.com/aspcartman/pcache"
+	"github.com/aspcartman/pcache/grace"
 	phttp "github.com/aspcartman/pcache/http"
 	"github.com/aspcartman/pcache/storage"
 	"github.com/sirupsen/logrus"
-	"net/http"
+	"github.com/valyala/fasthttp"
+	"net"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
-	"github.com/aspcartman/pcache"
 )
+var log *logrus.Logger
 
 type options struct {
 	addr      string
@@ -20,24 +22,27 @@ type options struct {
 }
 
 func main() {
-	logrus.SetFormatter(&logrus.TextFormatter{
-		ForceColors:true,
-		DisableTimestamp:true,
-	})
-	logrus.SetLevel(logrus.DebugLevel)
-	logrus.Info("starting")
+	initLogging()
 
-	service, err := newService(flagParse())
-	if err != nil {
-		logrus.WithError(err).Fatal("failed stating")
-	}
-
-	go service.Serve()
+	log.Info("starting")
+	cls := start(flagParse())
+	defer cls.Close()
+	log.Info("started")
 
 	waitForShutdown()
-	logrus.Warning("shutting down")
-	service.Stop()
-	logrus.Warning("down.")
+	log.Warning("shutting down")
+}
+
+func initLogging() {
+	log = &logrus.Logger{
+		Out:       os.Stderr,
+		Formatter: &logrus.TextFormatter{
+			ForceColors:      true,
+			DisableTimestamp: true,
+		},
+		Hooks:     make(logrus.LevelHooks),
+		Level:     logrus.DebugLevel,
+	}
 }
 
 func flagParse() options {
@@ -54,66 +59,90 @@ func waitForShutdown() {
 	<-ch
 }
 
-type service struct {
-	store      storage.Store
-	httpServer *http.Server
+func start(opts options) *grace.Closer {
+	cls := &grace.Closer{}
+	defer func() {
+		if r := recover(); r != nil {
+			cls.Close()
+		}
+	}()
+
+	log.WithField("path", opts.storePath).Debug("opening store")
+	store := openStore(opts.storePath)
+	defer cls.Add(func() {
+		closeStore(store)
+	})
+
+	log.WithField("addr", opts.addr).Debug("starting http server")
+	lsn := startHTTP(opts.addr, store)
+	defer cls.Add(func() {
+		stopHTTP(lsn)
+	})
+
+	return cls
 }
 
-func newService(opts options) (*service, error) {
-	store, err := openStore(opts.storePath)
-	if err != nil {
-		return nil, err
-	}
+func openStore(path string) storage.Store {
+	log := log.WithField("path", path)
 
-	httpSrv := &http.Server{
-		Handler: &phttp.Handler{Cache:pcache.New(store)},
-		Addr:    opts.addr,
-	}
-
-	return &service{store, httpSrv}, nil
-}
-
-func openStore(path string) (storage.Store, error) {
+	var store storage.Store
+	var err error
 	if len(path) == 0 {
-		logrus.Debug("using inmemory store")
-		return storage.NewInmemStore(), nil
+		log.Debug("using inmemory store")
+		store = storage.NewInmemStore()
 	} else {
-		logrus.WithField("path", path).Debug("opening badger store")
-		return storage.NewBadgerStore(path)
+		log.Debug("opening badger store")
+		store, err = storage.NewBadgerStore(path)
 	}
-}
 
-func (s *service) Serve() {
-	log := logrus.WithField("addr", s.httpServer.Addr)
-	log.Info("listening")
-	if err := s.httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-		log.WithError(err).Panic("failed listening & serving")
+	if err != nil {
+		log.Fatal("failed opening store")
 	}
-	log.Warn("stopped listening")
+
+	return store
 }
 
-func (s *service) Stop() {
-	s.shutdownHTTP()
-	s.shutdownStore()
+func closeStore(store storage.Store) {
+	log.Warn("closing the store")
+	if err := store.Close(); err != nil {
+		log.WithError(err).Error("error during storage close")
+	}
+	log.Warn("storage is closed")
 }
 
-func (s *service) shutdownHTTP() {
-	log := logrus.WithField("addr", s.httpServer.Addr)
+func startHTTP(addr string, store storage.Store) *grace.GracefulListener {
+	log := log.WithField("addr", addr)
+
+	handler := &phttp.Handler{Cache: pcache.New(store)}
+	srv := fasthttp.Server{
+		Handler: handler.Serve,
+	}
+
+	rawListener, err := net.Listen("tcp", addr)
+	if err != nil {
+		log.Fatal("failed listening")
+	}
+
+	gracefulListener := grace.NewGracefulListener(rawListener, 10*time.Second)
+
+	go func() {
+		log.Info("listening")
+		if err := srv.Serve(gracefulListener); err != nil {
+			log.WithError(err).Panic("failed listening & serving")
+		}
+		log.Warn("stopped listening")
+	}()
+
+	return gracefulListener
+}
+
+func stopHTTP(lsn *grace.GracefulListener) {
+	log := log.WithField("addr", lsn.Addr())
 	log.Warn("shutting down http server")
 
-	ctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
-
-	if err := s.httpServer.Shutdown(ctx); err != nil {
+	if err := lsn.Close(); err != nil {
 		log.WithError(err).Error("error during http shutdown")
 	}
 
 	log.Warn("http server is down")
-}
-
-func (s *service) shutdownStore() {
-	logrus.Warn("closing the store")
-	if err := s.store.Close(); err != nil {
-		logrus.WithError(err).Error("error during storage close")
-	}
-	logrus.Warn("storage is closed")
 }

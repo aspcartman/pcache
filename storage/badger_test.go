@@ -1,10 +1,10 @@
 package storage
 
 import (
-	"testing"
 	. "github.com/glycerine/goconvey/convey"
 	"os"
 	"path/filepath"
+	"testing"
 )
 
 func TestBadgerStore(t *testing.T) {
