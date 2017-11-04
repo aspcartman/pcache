@@ -1,0 +1,10 @@
+version: '2'
+services:
+  pcache:
+    build:
+      context: .
+    ports:
+      - "8080:8080"
+    volumes:
+      - "./data:/var/pcache"
+    command: -store=/var/pcache
