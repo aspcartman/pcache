@@ -10,11 +10,12 @@ import (
 // Handler serves HTTP requests with "url" query arg
 type Handler struct {
 	Cache *pcache.Cache
+	Log   *logrus.Entry
 }
 
 func (s *Handler) Serve(ctx *fasthttp.RequestCtx) {
 	url := string(ctx.QueryArgs().Peek("url"))
-	log := logrus.WithFields(logrus.Fields{
+	log := s.Log.WithFields(logrus.Fields{
 		"url": url,
 	})
 	log.Info("incoming request")

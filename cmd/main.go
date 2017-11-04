@@ -14,6 +14,7 @@ import (
 	"syscall"
 	"time"
 )
+
 var log *logrus.Logger
 
 type options struct {
@@ -35,13 +36,13 @@ func main() {
 
 func initLogging() {
 	log = &logrus.Logger{
-		Out:       os.Stderr,
+		Out: os.Stderr,
 		Formatter: &logrus.TextFormatter{
 			ForceColors:      true,
 			DisableTimestamp: true,
 		},
-		Hooks:     make(logrus.LevelHooks),
-		Level:     logrus.DebugLevel,
+		Hooks: make(logrus.LevelHooks),
+		Level: logrus.DebugLevel,
 	}
 }
 
@@ -82,6 +83,9 @@ func start(opts options) *grace.Closer {
 	return cls
 }
 
+/*
+	Storage
+ */
 func openStore(path string) storage.Store {
 	log := log.WithField("path", path)
 
@@ -110,10 +114,13 @@ func closeStore(store storage.Store) {
 	log.Warn("storage is closed")
 }
 
+/*
+	HTTP
+ */
 func startHTTP(addr string, store storage.Store) *grace.GracefulListener {
 	log := log.WithField("addr", addr)
 
-	handler := &phttp.Handler{Cache: pcache.New(store)}
+	handler := &phttp.Handler{Cache: pcache.New(store), Log:log}
 	srv := fasthttp.Server{
 		Handler: handler.Serve,
 	}
