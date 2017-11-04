@@ -30,7 +30,8 @@ func (s *badgerStore) Get(key string) ([]byte, error) {
 			return err
 		}
 
-		res = data
+		res = make([]byte, len(data))
+		copy(res, data)
 		return nil
 	})
 	return res, err
