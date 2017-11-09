@@ -4,41 +4,78 @@ import (
 	"github.com/aspcartman/pcache"
 	"github.com/sirupsen/logrus"
 	"github.com/valyala/fasthttp"
-	"net/http"
+	"github.com/aspcartman/pcache/e"
+	"github.com/pkg/errors"
 )
 
-// Handler serves HTTP requests with "url" query arg
+/*
+	Basic HTTP handler for image caching.
+	Can be used as is or as an example.
+
+	QueryArgs:
+		url - absolute url for the original image
+		size - size of the requested image (pcache.Size enum)
+
+	Writes requested image bytes in response
+ */
+
 type Handler struct {
-	Cache *pcache.Cache
-	Log   *logrus.Entry
+	Cache *pcache.ImageCache
+	Log   *logrus.Logger
 }
 
+var ErrBadRequest = errors.New("bad request")
+
 func (s *Handler) Serve(ctx *fasthttp.RequestCtx) {
-	url := string(ctx.QueryArgs().Peek("url"))
+	defer panicHandler(ctx)
+
+	url, size := s.getArgs(ctx)
 	log := s.Log.WithFields(logrus.Fields{
-		"url": url,
+		"url":  url,
+		"size": size,
 	})
-	log.Info("incoming request")
 
-	if len(url) == 0 {
-		ctx.SetStatusCode(http.StatusBadRequest)
-		log.Error("empty url")
-		return
-	}
+	s.verifyArgs(url, size)
 
-	img, cached, err := s.Cache.Get(url)
+	img, cached, err := s.Cache.Get(url, size)
 	if err != nil {
-		ctx.SetStatusCode(http.StatusInternalServerError)
-		log.WithError(err).Error("error acquiring image")
-		return
+		e.Throw("error acquiring image", log, err)
 	}
 
 	log = log.WithField("cached", cached)
 	_, err = ctx.Write(img)
 	if err != nil {
-		log.WithError(err).Error("failed writing response")
-		return
+		e.Throw("failed writing response", log, err)
 	}
 
 	log.Info("done")
+}
+
+func panicHandler(ctx *fasthttp.RequestCtx) {
+	e.Catch(func(ex *e.Exception) {
+		switch ex.Error {
+		case ErrBadRequest:
+			ctx.SetStatusCode(fasthttp.StatusBadRequest)
+		default:
+			ctx.SetStatusCode(fasthttp.StatusInternalServerError)
+		}
+		ctx.WriteString(ex.Info())
+	})
+}
+
+func (s *Handler) getArgs(ctx *fasthttp.RequestCtx) (url string, size pcache.Size) {
+	return string(ctx.QueryArgs().Peek("url")), pcache.Size(ctx.QueryArgs().Peek("size"))
+}
+
+func (s *Handler) verifyArgs(url string, size pcache.Size) {
+	if len(url) == 0 {
+		e.Throw(ErrBadRequest, "bad url")
+	}
+
+	switch size {
+	case pcache.SizeOrig:
+	case pcache.SizeSmall:
+	default:
+		e.Throw(ErrBadRequest, "bad size")
+	}
 }

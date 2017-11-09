@@ -1,6 +1,9 @@
 package storage
 
-import "github.com/dgraph-io/badger"
+import (
+	"github.com/dgraph-io/badger"
+	"github.com/dgraph-io/badger/options"
+)
 
 type badgerStore struct {
 	db *badger.DB
@@ -8,6 +11,7 @@ type badgerStore struct {
 
 func NewBadgerStore(path string) (*badgerStore, error) {
 	opts := badger.DefaultOptions
+	opts.TableLoadingMode = options.MemoryMap // map the index instead of copying to save memory usage
 	opts.Dir = path
 	opts.ValueDir = path
 	db, err := badger.Open(opts)
