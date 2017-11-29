@@ -27,7 +27,15 @@ type Handler struct {
 var ErrBadRequest = errors.New("bad request")
 
 func (s *Handler) Serve(ctx *fasthttp.RequestCtx) {
-	defer panicHandler(ctx)
+	defer e.Catch(func(ex *e.Exception) {
+		switch ex.Error {
+		case ErrBadRequest:
+			ctx.SetStatusCode(fasthttp.StatusBadRequest)
+		default:
+			ctx.SetStatusCode(fasthttp.StatusInternalServerError)
+		}
+		ctx.WriteString(ex.Info())
+	})
 
 	url, size := s.getArgs(ctx)
 	log := s.Log.WithFields(logrus.Fields{
@@ -37,30 +45,15 @@ func (s *Handler) Serve(ctx *fasthttp.RequestCtx) {
 
 	s.verifyArgs(url, size)
 
-	img, cached, err := s.Cache.Get(url, size)
-	if err != nil {
-		e.Throw("error acquiring image", log, err)
-	}
+	img, cached := s.Cache.Get(url, size)
 
 	log = log.WithField("cached", cached)
-	_, err = ctx.Write(img)
+	_, err := ctx.Write(img)
 	if err != nil {
 		e.Throw("failed writing response", log, err)
 	}
 
 	log.Info("done")
-}
-
-func panicHandler(ctx *fasthttp.RequestCtx) {
-	e.Catch(func(ex *e.Exception) {
-		switch ex.Error {
-		case ErrBadRequest:
-			ctx.SetStatusCode(fasthttp.StatusBadRequest)
-		default:
-			ctx.SetStatusCode(fasthttp.StatusInternalServerError)
-		}
-		ctx.WriteString(ex.Info())
-	})
 }
 
 func (s *Handler) getArgs(ctx *fasthttp.RequestCtx) (url string, size pcache.Size) {
@@ -75,6 +68,7 @@ func (s *Handler) verifyArgs(url string, size pcache.Size) {
 	switch size {
 	case pcache.SizeOrig:
 	case pcache.SizeSmall:
+	case pcache.SizePlaceholder:
 	default:
 		e.Throw(ErrBadRequest, "bad size")
 	}

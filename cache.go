@@ -1,7 +1,6 @@
 package pcache
 
 import (
-	"fmt"
 	"github.com/aspcartman/pcache/storage"
 	"net/http"
 	"time"
@@ -10,13 +9,19 @@ import (
 	"image"
 	"bytes"
 	"image/jpeg"
+	"github.com/fogleman/primitive/primitive"
+	"runtime"
+	_ "image/png"
+	"github.com/aspcartman/pcache/e"
+	"strings"
 )
 
 type Size string
 
 const (
-	SizeOrig  Size = "orig"
-	SizeSmall Size = "small"
+	SizeOrig        Size = "orig"
+	SizeSmall       Size = "small"
+	SizePlaceholder Size = "placeholder"
 )
 
 type ImageCache struct {
@@ -31,83 +36,97 @@ func New(store storage.Store) *ImageCache {
 	}
 }
 
-func (c *ImageCache) Get(url string, size Size) ([]byte, bool, error) {
+func (c *ImageCache) Get(url string, size Size) ([]byte, bool) {
 	// Try to get image from cache
 	img, err := c.getFromStore(url, size)
 	if err == nil {
-		return img, true, nil
+		return img, true
 	} else if err != nil && err != storage.ErrNotFound {
-		return nil, false, err
+		e.Throw(err)
 	}
 
 	// Maybe there is cached original?
 	if size != SizeOrig {
 		img, err = c.getFromStore(url, SizeOrig)
 		if err != nil && err != storage.ErrNotFound {
-			return nil, false, err
+			e.Throw(err)
 		}
 	}
 
 	// Ok, let's download the image from source
 	if len(img) == 0 {
-		img, err = c.doGetData(url)
-		if err != nil {
-			return nil, false, err
+		img = c.doGetData(url)
+	}
+
+	var requested []byte
+	for _, sz := range []Size{SizeOrig, SizeSmall, SizePlaceholder} {
+		img = c.resizeImage(img, sz)
+		c.saveToStore(url, sz, img)
+		if sz == size {
+			requested = img
 		}
-		// Don't forget to save the original
-		c.saveToStore(url, SizeOrig, img)
 	}
 
-	img, err = c.resizeImage(img, size)
-	if err != nil {
-		return nil, false, err
+	if len(requested) == 0 {
+		e.Throw("final image is empty")
 	}
 
-	err = c.saveToStore(url, size, img)
-	if err != nil {
-		return nil, false, err
-	}
-
-	return img, false, nil
+	return requested, false
 }
 
 func (c *ImageCache) getFromStore(url string, size Size) ([]byte, error) {
 	return c.store.Get(url + "_" + string(size))
 }
 
-func (c *ImageCache) saveToStore(url string, size Size, data []byte) error {
-	return c.store.Set(url+"_"+string(size), data)
+func (c *ImageCache) saveToStore(url string, size Size, data []byte) {
+	e.Must(c.store.Set(url+"_"+string(size), data))
 }
 
-func (c *ImageCache) doGetData(url string) ([]byte, error) {
+func (c *ImageCache) doGetData(url string) []byte {
 	code, res, err := c.client.GetTimeout(nil, url, 10*time.Second)
 	if err != nil {
-		return nil, err
+		e.Throw(err, "failed getting img from source", url)
 	}
 	if code != http.StatusOK {
-		return nil, fmt.Errorf("bad status code: %d", code)
+		e.Throw("bad status code", code)
 	}
 
-	return res, nil
+	return res
 }
 
 // warn: modifies the passed slice's data
-func (c *ImageCache) resizeImage(data []byte, size Size) ([]byte, error) {
+func (c *ImageCache) resizeImage(data []byte, size Size) []byte {
 	if size == SizeOrig {
-		return data, nil
+		return data
 	}
 
 	img, _, err := image.Decode(bytes.NewReader(data))
 	if err != nil {
-		return nil, err
+		e.Throw("failed decoding image", err, string(data))
 	}
 
-	img = resize.Thumbnail(200, 200, img, resize.Lanczos3)
-	buf := bytes.NewBuffer(data[:0])
-	err = jpeg.Encode(buf, img, &jpeg.Options{80})
-	if err != nil {
-		return nil, err
+	switch size {
+
+	case SizeSmall:
+		img = resize.Thumbnail(256, 256, img, resize.Lanczos3)
+		buf := bytes.NewBuffer(nil)
+		err = jpeg.Encode(buf, img, &jpeg.Options{80})
+		if err != nil {
+			e.Throw("failed encoding", err)
+		}
+		return buf.Bytes()
+
+	case SizePlaceholder:
+		bg := primitive.MakeColor(primitive.AverageImageColor(img))
+		model := primitive.NewModel(img, bg, 256, runtime.NumCPU())
+		for i := 0; i < 100; i++ {
+			model.Step(primitive.ShapeTypeTriangle, 128, 0)
+		}
+		svg := model.SVG()
+		svg = strings.Replace(svg, "<g", `<filter id="b"><feGaussianBlur stdDeviation="12" /></filter><g filter="url(#b)"`, 1)
+		return []byte(svg)
 	}
 
-	return buf.Bytes(), nil
+	e.Throw("unknown imgsize", size)
+	return nil
 }
