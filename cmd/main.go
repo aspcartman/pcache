@@ -15,6 +15,7 @@ import (
 	"time"
 	"github.com/aspcartman/pcache/e"
 	"github.com/aspcartman/pcache/e/elogrus"
+	"runtime"
 )
 
 var log *logrus.Logger
@@ -25,6 +26,8 @@ type options struct {
 }
 
 func main() {
+	runtime.GOMAXPROCS(runtime.NumCPU() * 4)
+
 	initLogging()
 	opts := flagParse()
 

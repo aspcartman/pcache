@@ -74,6 +74,30 @@ func (c *ImageCache) Get(url string, size Size) ([]byte, bool) {
 	return requested, false
 }
 
+func (c *ImageCache) Cache(url string) {
+	img, err := c.getFromStore(url, SizeOrig)
+	if err != nil && err != storage.ErrNotFound {
+		e.Throw(err)
+	}
+
+	if len(img) == 0 {
+		img = c.doGetData(url)
+	}
+
+	for _, sz := range []Size{SizeOrig, SizeSmall, SizePlaceholder} {
+		_, err := c.getFromStore(url, sz)
+		if err == nil {
+			continue
+		}
+		if err != nil && err != storage.ErrNotFound {
+			e.Throw(err)
+		}
+
+		img = c.resizeImage(img, sz)
+		c.saveToStore(url, sz, img)
+	}
+}
+
 func (c *ImageCache) getFromStore(url string, size Size) ([]byte, error) {
 	return c.store.Get(url + "_" + string(size))
 }
@@ -108,7 +132,7 @@ func (c *ImageCache) resizeImage(data []byte, size Size) []byte {
 	switch size {
 
 	case SizeSmall:
-		img = resize.Thumbnail(256, 256, img, resize.Lanczos3)
+		img = resize.Thumbnail(256, 256, img, resize.Bicubic)
 		buf := bytes.NewBuffer(nil)
 		err = jpeg.Encode(buf, img, &jpeg.Options{80})
 		if err != nil {

@@ -20,10 +20,28 @@
   revision = "e2d0fe22b456fa0a35cd883ba355ecfcf1881490"
 
 [[projects]]
+  name = "github.com/fogleman/gg"
+  packages = ["."]
+  revision = "6166aa3c1afaee416f384645a81636267aee6d25"
+  version = "v1.0.0"
+
+[[projects]]
+  branch = "master"
+  name = "github.com/fogleman/primitive"
+  packages = ["primitive"]
+  revision = "69506c928bef740cc2b04cc385d878083556b206"
+
+[[projects]]
   name = "github.com/glycerine/goconvey"
   packages = ["convey"]
   revision = "728b3f160cb397ba18120323ed26777ea872304e"
   version = "1.5.0"
+
+[[projects]]
+  branch = "master"
+  name = "github.com/golang/freetype"
+  packages = ["raster","truetype"]
+  revision = "e2365dfdc4a05e4b8299a783240d4a7d5a65d4e4"
 
 [[projects]]
   branch = "master"
@@ -54,6 +72,12 @@
   packages = ["."]
   revision = "cb6bfca970f6908083f26f39a79009d608efd5cd"
   version = "v1.1"
+
+[[projects]]
+  branch = "master"
+  name = "github.com/nfnt/resize"
+  packages = ["."]
+  revision = "891127d8d1b52734debe1b3c3d7e747502b6c366"
 
 [[projects]]
   name = "github.com/pkg/errors"
@@ -87,6 +111,12 @@
 
 [[projects]]
   branch = "master"
+  name = "golang.org/x/image"
+  packages = ["font","font/basicfont","font/plan9font","math/fixed"]
+  revision = "f7e31b4ea2e3413ab91b4e7d2dc83e5f8d19a44c"
+
+[[projects]]
+  branch = "master"
   name = "golang.org/x/net"
   packages = ["context","internal/timeseries","trace"]
   revision = "01c190206fbdffa42f334f4b2bf2220f50e64920"
@@ -100,6 +130,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "6b9b3b0d02e7200bea85b7e3514d01a9c4a92d3392ec11ac2a36bae6ea2603b0"
+  inputs-digest = "d2dcde99b91f221b09ec03873e58f45d78e2de437d1e8c7a27b07c79118d73b5"
   solver-name = "gps-cdcl"
   solver-version = 1

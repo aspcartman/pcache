@@ -37,27 +37,35 @@ func (s *Handler) Serve(ctx *fasthttp.RequestCtx) {
 		ctx.WriteString(ex.Info())
 	})
 
-	url, size := s.getArgs(ctx)
+	url, size, onlyCache := s.getArgs(ctx)
 	log := s.Log.WithFields(logrus.Fields{
-		"url":  url,
-		"size": size,
+		"url":       url,
+		"size":      size,
+		"onlyCache": onlyCache,
 	})
 
 	s.verifyArgs(url, size)
 
-	img, cached := s.Cache.Get(url, size)
-
-	log = log.WithField("cached", cached)
-	_, err := ctx.Write(img)
-	if err != nil {
-		e.Throw("failed writing response", log, err)
+	if onlyCache {
+		go func() {
+			e.Catch(func(e *e.Exception) {})
+			s.Cache.Cache(url)
+		}()
+		ctx.WriteString("Accepted")
+	} else {
+		img, cached := s.Cache.Get(url, size)
+		log = log.WithField("cached", cached)
+		_, err := ctx.Write(img)
+		if err != nil {
+			e.Throw("failed writing response", log, err)
+		}
 	}
 
 	log.Info("done")
 }
 
-func (s *Handler) getArgs(ctx *fasthttp.RequestCtx) (url string, size pcache.Size) {
-	return string(ctx.QueryArgs().Peek("url")), pcache.Size(ctx.QueryArgs().Peek("size"))
+func (s *Handler) getArgs(ctx *fasthttp.RequestCtx) (url string, size pcache.Size, onlyCache bool) {
+	return string(ctx.QueryArgs().Peek("url")), pcache.Size(ctx.QueryArgs().Peek("size")), ctx.QueryArgs().Has("onlyCache")
 }
 
 func (s *Handler) verifyArgs(url string, size pcache.Size) {
