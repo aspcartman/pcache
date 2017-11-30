@@ -38,64 +38,32 @@ func New(store storage.Store) *ImageCache {
 
 func (c *ImageCache) Get(url string, size Size) ([]byte, bool) {
 	// Try to get image from cache
-	img, err := c.getFromStore(url, size)
+	imageData, err := c.getFromStore(url, size)
 	if err == nil {
-		return img, true
+		return imageData, true
 	} else if err != nil && err != storage.ErrNotFound {
 		e.Throw(err)
 	}
 
 	// Maybe there is cached original?
 	if size != SizeOrig {
-		img, err = c.getFromStore(url, SizeOrig)
+		imageData, err = c.getFromStore(url, SizeOrig)
 		if err != nil && err != storage.ErrNotFound {
 			e.Throw(err)
 		}
 	}
 
 	// Ok, let's download the image from source
-	if len(img) == 0 {
-		img = c.doGetData(url)
+	if len(imageData) == 0 {
+		imageData = c.doGetData(url)
 	}
 
-	var requested []byte
-	for _, sz := range []Size{SizeOrig, SizeSmall, SizePlaceholder} {
-		img = c.resizeImage(img, sz)
-		c.saveToStore(url, sz, img)
-		if sz == size {
-			requested = img
-		}
-	}
+	imageData = c.convertImageToSize(imageData, size)
+	c.saveToStore(url, size, imageData)
 
-	if len(requested) == 0 {
-		e.Throw("final image is empty")
-	}
+	go c.verifyProperlyCached(url, imageData)
 
-	return requested, false
-}
-
-func (c *ImageCache) Cache(url string) {
-	img, err := c.getFromStore(url, SizeOrig)
-	if err != nil && err != storage.ErrNotFound {
-		e.Throw(err)
-	}
-
-	if len(img) == 0 {
-		img = c.doGetData(url)
-	}
-
-	for _, sz := range []Size{SizeOrig, SizeSmall, SizePlaceholder} {
-		_, err := c.getFromStore(url, sz)
-		if err == nil {
-			continue
-		}
-		if err != nil && err != storage.ErrNotFound {
-			e.Throw(err)
-		}
-
-		img = c.resizeImage(img, sz)
-		c.saveToStore(url, sz, img)
-	}
+	return imageData, false
 }
 
 func (c *ImageCache) getFromStore(url string, size Size) ([]byte, error) {
@@ -119,7 +87,7 @@ func (c *ImageCache) doGetData(url string) []byte {
 }
 
 // warn: modifies the passed slice's data
-func (c *ImageCache) resizeImage(data []byte, size Size) []byte {
+func (c *ImageCache) convertImageToSize(data []byte, size Size) []byte {
 	if size == SizeOrig {
 		return data
 	}
@@ -141,6 +109,10 @@ func (c *ImageCache) resizeImage(data []byte, size Size) []byte {
 		return buf.Bytes()
 
 	case SizePlaceholder:
+		if img.Bounds().Size().X > 256 || img.Bounds().Size().Y > 256 {
+			img = resize.Thumbnail(256, 256, img, resize.Bicubic)
+		}
+
 		bg := primitive.MakeColor(primitive.AverageImageColor(img))
 		model := primitive.NewModel(img, bg, 256, runtime.NumCPU())
 		for i := 0; i < 100; i++ {
@@ -153,4 +125,16 @@ func (c *ImageCache) resizeImage(data []byte, size Size) []byte {
 
 	e.Throw("unknown imgsize", size)
 	return nil
+}
+
+func (c *ImageCache) verifyProperlyCached(url string, data []byte) {
+	defer e.Catch(func(e *e.Exception) {})
+
+	for _, sz := range []Size{SizeOrig, SizeSmall, SizePlaceholder} {
+		_, err := c.getFromStore(url, sz)
+		if err == storage.ErrNotFound {
+			data = c.convertImageToSize(data, sz)
+			c.saveToStore(url, sz, data)
+		}
+	}
 }
