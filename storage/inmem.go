@@ -30,6 +30,17 @@ func (s *inmemStore) Set(key string, data []byte) error {
 	return nil
 }
 
+func (s *inmemStore) ForEach(f func(key string, data []byte)) error {
+	s.mtx.Lock()
+	defer s.mtx.Unlock()
+
+	for k, v := range s.data {
+		f(k, v)
+	}
+
+	return nil
+}
+
 func (s *inmemStore) Close() error {
 	return nil
 }

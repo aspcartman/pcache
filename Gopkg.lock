@@ -8,16 +8,22 @@
   revision = "28f7e881ca57bc00e028f9ede9f0d9104cfeef5e"
 
 [[projects]]
+  name = "github.com/coreos/bbolt"
+  packages = ["."]
+  revision = "583e8937c61f1af6513608ccc75c97b6abdf4ff9"
+  version = "v1.3.0"
+
+[[projects]]
   name = "github.com/dgraph-io/badger"
   packages = [".","options","protos","skl","table","y"]
-  revision = "df7b92c78464f24bfa66a0068ecb8b94868aedb2"
-  version = "v1.0.0"
+  revision = "aa6f000eb89a17687e09260c0c3309e643182d6e"
+  version = "v1.2.0"
 
 [[projects]]
   branch = "master"
   name = "github.com/dgryski/go-farm"
   packages = ["."]
-  revision = "e2d0fe22b456fa0a35cd883ba355ecfcf1881490"
+  revision = "ac7624ea8da311f2fbbd94401d8c1cf66089f9fb"
 
 [[projects]]
   name = "github.com/fogleman/gg"
@@ -47,7 +53,7 @@
   branch = "master"
   name = "github.com/golang/protobuf"
   packages = ["proto"]
-  revision = "1643683e1b54a9e88ad26d98f81400c8c9d9f4f9"
+  revision = "1e59b77b52bf8e4b449a57e6f79f21226d571845"
 
 [[projects]]
   branch = "master"
@@ -107,7 +113,7 @@
   branch = "master"
   name = "golang.org/x/crypto"
   packages = ["ssh/terminal"]
-  revision = "bd6f299fb381e4c3393d1c4b1f0b94f5e77650c8"
+  revision = "94eea52f7b742c7cbe0b03b22f0c4c8631ece122"
 
 [[projects]]
   branch = "master"
@@ -119,17 +125,17 @@
   branch = "master"
   name = "golang.org/x/net"
   packages = ["context","internal/timeseries","trace"]
-  revision = "01c190206fbdffa42f334f4b2bf2220f50e64920"
+  revision = "a8b9294777976932365dabb6640cf1468d95c70f"
 
 [[projects]]
   branch = "master"
   name = "golang.org/x/sys"
   packages = ["unix","windows"]
-  revision = "4fe5d7925040acd225bf9c7cee65e82d07f06bff"
+  revision = "8b4580aae2a0dd0c231a45d3ccb8434ff533b840"
 
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "d2dcde99b91f221b09ec03873e58f45d78e2de437d1e8c7a27b07c79118d73b5"
+  inputs-digest = "fef562bc46c19945600ab1b3a09028ca450c471635a4a31fb839722a0b12d69f"
   solver-name = "gps-cdcl"
   solver-version = 1

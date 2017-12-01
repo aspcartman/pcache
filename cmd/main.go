@@ -101,7 +101,7 @@ func openStore(path string) storage.Store {
 		store = storage.NewInmemStore()
 	} else {
 		log.Debug("opening badger store")
-		store, err = storage.NewBadgerStore(path)
+		store, err = storage.NewBoltStore(path)
 	}
 
 	if err != nil {

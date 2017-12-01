@@ -19,5 +19,17 @@ func testStore(store Store) {
 			So(err, ShouldBeNil)
 			So(v, ShouldResemble, []byte{1, 2, 3})
 		})
+
+		Convey("Iteration", func() {
+			var k string
+			var d []byte
+			store.ForEach(func(key string, data []byte) {
+				k = key
+				d = data
+			})
+			So(k, ShouldEqual, "lol")
+			So(d, ShouldResemble, []byte{1, 2, 3})
+		})
 	})
+
 }

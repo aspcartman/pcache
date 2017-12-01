@@ -58,12 +58,12 @@ func (c *ImageCache) Get(url string, size Size) ([]byte, bool) {
 		imageData = c.doGetData(url)
 	}
 
-	imageData = c.convertImageToSize(imageData, size)
+	conv := c.convertImageToSize(imageData, size)
 	c.saveToStore(url, size, imageData)
 
 	go c.verifyProperlyCached(url, imageData)
 
-	return imageData, false
+	return conv, false
 }
 
 func (c *ImageCache) getFromStore(url string, size Size) ([]byte, error) {
@@ -86,7 +86,6 @@ func (c *ImageCache) doGetData(url string) []byte {
 	return res
 }
 
-// warn: modifies the passed slice's data
 func (c *ImageCache) convertImageToSize(data []byte, size Size) []byte {
 	if size == SizeOrig {
 		return data

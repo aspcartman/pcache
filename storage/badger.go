@@ -18,6 +18,7 @@ func NewBadgerStore(path string) (*badgerStore, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	return &badgerStore{db}, nil
 }
 
@@ -44,6 +45,21 @@ func (s *badgerStore) Get(key string) ([]byte, error) {
 func (s *badgerStore) Set(key string, data []byte) error {
 	return s.db.Update(func(txn *badger.Txn) error {
 		return txn.Set([]byte(key), data)
+	})
+}
+
+func (s *badgerStore) ForEach(f func(key string, data []byte)) error {
+	return s.db.View(func(txn *badger.Txn) error {
+		it := txn.NewIterator(badger.DefaultIteratorOptions)
+		for it.Rewind(); it.Valid(); it.Next() {
+			item := it.Item()
+			v, err := item.Value()
+			if err != nil {
+				return err
+			}
+			f(string(item.Key()), v)
+		}
+		return nil
 	})
 }
 

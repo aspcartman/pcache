@@ -7,4 +7,4 @@ services:
       - "8080:8080"
     volumes:
       - "./data:/var/pcache"
-    command: -store=/var/pcache
+    command: -store=/var/pcache/store.boltdb

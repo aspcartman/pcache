@@ -7,5 +7,6 @@ var ErrNotFound = badger.ErrKeyNotFound
 type Store interface {
 	Get(key string) ([]byte, error)
 	Set(key string, data []byte) error
+	ForEach(func(key string, data []byte)) error
 	Close() error
 }
