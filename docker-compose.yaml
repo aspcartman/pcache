@@ -1,8 +1,7 @@
 version: '2'
 services:
   pcache:
-    build:
-      context: .
+    image: aspcartman/pcache
     ports:
       - "8080:8080"
     volumes:
