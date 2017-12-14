@@ -19,4 +19,4 @@ clean:
 test:
 	go test ./...
 
-.PHONY: run clean test
+.PHONY: run clean 
