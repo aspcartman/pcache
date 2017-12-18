@@ -1,7 +1,7 @@
 version: '2'
 services:
   pcache:
-    image: 51.15.95.223:33433/aspcartman/pcache
+    image: registry.aspc.me/aspcartman/pcache
     ports:
       - "8080:8080"
     volumes:
