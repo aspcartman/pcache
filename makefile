@@ -5,7 +5,7 @@ run: vendor
 	go run ./cmd/main.go
 
 build/pcache: ./*/*.go vendor
-	GOOS=linux GOARCH=amd64 go build -i -o ./build/pcache ./cmd
+	GOOS=linux GOARCH=amd64 go build -i -o ./build/pcache ./cmd/main.go
 
 build/img: build/pcache
 	docker-compose build
