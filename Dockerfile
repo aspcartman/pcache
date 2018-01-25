@@ -1,8 +1,8 @@
 FROM alpine
 
-ADD build/pcache .
+ADD build/pcache /pcache
 VOLUME /var/pcache
 EXPOSE 8080
 
-ENTRYPOINT ["./pcache"]
+ENTRYPOINT ["/pcache"]
 CMD []
