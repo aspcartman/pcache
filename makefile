@@ -4,7 +4,7 @@ vendor: Gopkg.toml
 run: vendor
 	go run ./cmd/main.go
 
-build/pcache: vendor $(find . -path ./vendor -prune -o -name '*.go')
+build/pcache: vendor $(find . -name '*.go' -not -path ./vendor)
 	GOOS=linux GOARCH=amd64 go build -i -o ./build/pcache ./cmd/main.go
 
 build/img: build/pcache
