@@ -3,8 +3,6 @@ package pcache
 import (
 	"github.com/aspcartman/pcache/storage"
 	"net/http"
-	"time"
-	"github.com/valyala/fasthttp"
 	"github.com/nfnt/resize"
 	"image"
 	"bytes"
@@ -14,6 +12,8 @@ import (
 	_ "image/png"
 	"github.com/aspcartman/pcache/e"
 	"strings"
+	"io/ioutil"
+	"time"
 )
 
 type Size string
@@ -25,13 +25,13 @@ const (
 )
 
 type ImageCache struct {
-	client fasthttp.Client
+	client http.Client
 	store  storage.Store
 }
 
 func New(store storage.Store) *ImageCache {
 	return &ImageCache{
-		client: fasthttp.Client{},
+		client: http.Client{Timeout: 10 * time.Second},
 		store:  store,
 	}
 }
@@ -75,15 +75,21 @@ func (c *ImageCache) saveToStore(url string, size Size, data []byte) {
 }
 
 func (c *ImageCache) doGetData(url string) []byte {
-	code, res, err := c.client.GetTimeout(nil, url, 10*time.Second)
+	res, err := c.client.Get(url)
 	if err != nil {
-		e.Throw(err, "failed getting img from source", url)
+		e.Throw(err, "failed getting img from source ", url)
 	}
-	if code != http.StatusOK {
-		e.Throw("bad status code", code)
+	if res.StatusCode != http.StatusOK {
+		e.Throw("bad status code", res.StatusCode)
+	}
+	defer res.Body.Close()
+
+	data, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		e.Throw("failed reading image data ", url)
 	}
 
-	return res
+	return data
 }
 
 func (c *ImageCache) convertImageToSize(data []byte, size Size) []byte {
